@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Casino Rollout – Pot Chips + Smooth</title>
+<style>
+body {margin:0;font-family:Arial, sans-serif;background:radial-gradient(circle at center,#043204 0%,#010a01 100%);color:#fff;text-align:center;overflow:auto;}
+h1 {margin:12px 0;font-size:28px;text-shadow:0 0 10px gold;}
+.top-bar {width:100%;max-width:700px;margin:10px auto;background:rgba(0,0,0,0.6);border:2px solid gold;border-radius:8px;padding:8px 14px;display:flex;justify-content:space-between;font-size:18px;font-weight:bold;color:gold;text-shadow:0 0 8px #000;}
+button {background:linear-gradient(180deg,#28a428,#146d14);color:#fff;border:2px solid gold;border-radius:8px;padding:10px 18px;font-weight:bold;cursor:pointer;box-shadow:0 0 10px rgba(255,215,0,0.6);transition:0.3s;}
+button:hover {box-shadow:0 0 20px gold;}
+.table-wrap {position:relative;margin:20px auto;width:600px;height:600px;background:radial-gradient(circle at center,#115c11 0%,#053005 100%);border:12px solid gold;border-radius:50%;box-shadow:0 0 50px rgba(255,215,0,0.5),inset 0 0 80px rgba(0,0,0,0.8);}
+#arena {position:absolute;left:0;top:0;}
+ul.seats {list-style:none;margin:0;padding:0;position:absolute;inset:0;}
+ul.seats li {position:absolute;width:80px;height:80px;border-radius:50%;display:flex;flex-direction:column;justify-content:center;align-items:center;font-size:12px;font-weight:bold;color:#fff;box-shadow:0 0 10px rgba(0,0,0,0.5);text-align:center;}
+ul.seats li.win {animation:pulse 1s infinite;}
+@keyframes pulse {0%{box-shadow:0 0 10px gold;}50%{box-shadow:0 0 30px gold;}100%{box-shadow:0 0 10px gold;}}
+.pot {position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:130px;height:130px;border-radius:50%;background:radial-gradient(circle at center,#333 0%,#111 100%);border:5px solid gold;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:bold;font-size:16px;color:gold;box-shadow:0 0 25px rgba(255,215,0,0.6),inset 0 0 40px rgba(0,0,0,0.8);}
+.chip {position:absolute;width:42px;height:42px;border-radius:50%;border:3px solid #fff;pointer-events:none;transition:all 1s ease-in-out;display:flex;justify-content:center;align-items:center;font-size:12px;font-weight:bold;color:#fff;box-shadow:0 4px 6px rgba(0,0,0,0.6);}
+.chip.red {background:radial-gradient(circle at 30% 30%,#ff8080,red);}
+.chip.blue {background:radial-gradient(circle at 30% 30%,#8080ff,blue);}
+.chip.gold {background:radial-gradient(circle at 30% 30%,#fff7b0,gold);color:#000;}
+.seatChips {font-size:11px;color:gold;}
+.controls {margin:15px;}
+.log {width:600px;max-width:95%;margin:10px auto;padding:10px;background:rgba(0,0,0,0.6);border-radius:6px;font-size:14px;height:120px;overflow:auto;text-align:left;color:lime;font-family:monospace;}
+.hidden{display:none;}
+.bet-bar {display:flex;justify-content:center;gap:15px;overflow-x:auto;margin:20px;}
+.bet-chip {width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid #fff;cursor:pointer;font-weight:bold;box-shadow:0 0 25px rgba(0,0,0,0.6);}
+.bet-chip.active {box-shadow:0 0 25px gold;}
+.bet-chip.red {background:radial-gradient(circle at 30% 30%,#ff8080,red);}
+.bet-chip.blue {background:radial-gradient(circle at 30% 30%,#8080ff,blue);}
+.bet-chip.gold {background:radial-gradient(circle at 30% 30%,#fff7b0,gold);color:#000;}
+</style>
+</head>
+<body>
+<h1>Casino Rollout 🎲</h1>
+
+<audio id="bgMusic" src="music.mp3" autoplay loop></audio>
+<audio id="chipSound" src="chips.mp3"></audio>
+<audio id="winSound" src="win.mp3"></audio>
+
+<div class="top-bar hidden" id="topBar">
+  <div><b>Chips:</b> <span id="userChips">0</span></div>
+  <button id="buyBtn">+ Buy Chips</button>
+</div>
+
+<div id="startScreen">
+  <button onclick="switchAuth('signup')">Signup</button>
+  <button onclick="switchAuth('login')">Login</button>
+</div>
+
+<div id="signupBox" class="auth-box hidden">
+  <h3>Signup</h3>
+  <input id="signupUsername" placeholder="Username"><br>
+  <input id="signupEmail" placeholder="Email"><br>
+  <input type="password" id="signupPassword" placeholder="Password"><br>
+  <button id="signupBtn">Signup</button>
+</div>
+
+<div id="loginBox" class="auth-box hidden">
+  <h3>Login</h3>
+  <input id="loginEmail" placeholder="Email"><br>
+  <input type="password" id="loginPassword" placeholder="Password"><br>
+  <button id="loginBtn">Login</button>
+</div>
+
+<div id="betSelection" class="hidden">
+  <h2>Select Bet</h2>
+  <div class="bet-bar">
+    <div class="bet-chip red" onclick="setBet(100,this)">100</div>
+    <div class="bet-chip blue" onclick="setBet(500,this)">500</div>
+    <div class="bet-chip gold" onclick="setBet(1000,this)">1000</div>
+  </div>
+  <button id="startGame">Start Game</button>
+</div>
+
+<div class="table-wrap hidden" id="gameTable">
+  <canvas id="arena" width="600" height="600"></canvas>
+  <div class="pot" id="pot">Pot: 0</div>
+  <ul class="seats" id="seats"></ul>
+</div>
+
+<div class="controls hidden" id="controls">
+  <button id="rollBtn">Roll</button>
+  <button id="backBtn">Back</button>
+</div>
+
+<div class="log" id="log"></div>
+
+<script>
+const NUM_PLAYERS=10;
+let username="", email="", chips=0, bet=100;
+let redWinner=-1, whiteWinner=-1;
+const cx=300, cy=300, radius=230;
+const seatColors=["#d32f2f","#1976d2","#388e3c","#fbc02d","#7b1fa2","#0288d1","#c2185b","#512da8","#00796b","#e64a19"];
+let playerChips = new Array(NUM_PLAYERS).fill(0);
+let potAmount=0;
+
+// Smooth counter update
+function smoothUpdate(id, start, end, duration=1000){
+  let el=document.getElementById(id);
+  let startTime=null;
+  function anim(t){
+    if(!startTime) startTime=t;
+    let prog=Math.min((t-startTime)/duration,1);
+    let val=Math.floor(start+(end-start)*prog);
+    el.textContent=val;
+    if(prog<1) requestAnimationFrame(anim);
+  }
+  requestAnimationFrame(anim);
+}
+
+// Helpers
+function getUsers(){return JSON.parse(localStorage.getItem("casinoUsers")||"[]");}
+function saveUsers(u){localStorage.setItem("casinoUsers",JSON.stringify(u));}
+function saveChips(){let u=getUsers();let me=u.find(x=>x.email===email);if(me){me.chips=chips;saveUsers(u);}}
+
+// Auth
+function switchAuth(to){document.getElementById("startScreen").classList.add("hidden");document.getElementById("signupBox").classList.add("hidden");document.getElementById("loginBox").classList.add("hidden");if(to==="signup")document.getElementById("signupBox").classList.remove("hidden");else document.getElementById("loginBox").classList.remove("hidden");}
+document.getElementById("signupBtn").onclick=()=>{let u=document.getElementById("signupUsername").value.trim();let e=document.getElementById("signupEmail").value.trim();let p=document.getElementById("signupPassword").value;if(!u||!e||!p){alert("Fill all fields");return;}let users=getUsers();if(users.find(x=>x.email===e)){alert("Email exists");return;}users.push({username:u,email:e,password:p,chips:10});saveUsers(users);alert("Signup done (10 chips). Now login.");switchAuth("login");};
+document.getElementById("loginBtn").onclick=()=>{let e=document.getElementById("loginEmail").value.trim();let p=document.getElementById("loginPassword").value;let u=getUsers().find(x=>x.email===e&&x.password===p);if(!u){alert("Invalid login");return;}username=u.username;email=u.email;chips=u.chips;playerChips[0]=chips;document.getElementById("signupBox").classList.add("hidden");document.getElementById("loginBox").classList.add("hidden");document.getElementById("topBar").classList.remove("hidden");document.getElementById("betSelection").classList.remove("hidden");document.getElementById("userChips").textContent=chips;};
+
+// Bet
+function setBet(b,el){bet=b;document.querySelectorAll(".bet-chip").forEach(c=>c.classList.remove("active"));el.classList.add("active");}
+document.getElementById("startGame").onclick=()=>{if(chips<bet){alert("Not enough chips");return;}document.getElementById("betSelection").classList.add("hidden");document.getElementById("gameTable").classList.remove("hidden");document.getElementById("controls").classList.remove("hidden");drawSeats();collectChips();};
+
+// Draw seats
+function drawSeats(){
+  const seats=document.getElementById("seats");
+  seats.innerHTML="";
+  for(let i=0;i<NUM_PLAYERS;i++){
+    const angle=(Math.PI*2/NUM_PLAYERS)*i-Math.PI/2;
+    const x=cx+Math.cos(angle)*radius-40;
+    const y=cy+Math.sin(angle)*radius-40;
+    let li=document.createElement("li");
+    li.style.left=x+"px";
+    li.style.top=y+"px";
+    li.id="seat-"+i;
+    li.classList.add("seat");
+    li.style.background=seatColors[i%seatColors.length];
+    li.innerHTML=(i===0?username:"P"+(i+1))+"<br><span class='seatChips' id='seatChips-"+i+"'>"+playerChips[i]+"</span>";
+    seats.appendChild(li);
+  }
+}
+
+// Chips collect (seat -> pot)
+function collectChips(){
+  const pot=document.getElementById("pot").getBoundingClientRect();
+  document.querySelectorAll(".seat").forEach((seat,i)=>{
+    const rect=seat.getBoundingClientRect();
+    let chip=document.createElement("div");
+    chip.className="chip "+(bet===100?"red":bet===500?"blue":"gold");
+    chip.innerHTML=bet;
+    chip.style.left=(rect.left+30)+"px";
+    chip.style.top=(rect.top+30)+"px";
+    document.body.appendChild(chip);
+
+    setTimeout(()=>{
+      chip.style.left=(pot.left+40)+"px";
+      chip.style.top=(pot.top+40)+"px";
+    },100);
+
+    setTimeout(()=>chip.remove(),1200);
+  });
+
+  document.getElementById("chipSound").play();
+  potAmount=NUM_PLAYERS*bet;
+  setTimeout(()=>{document.getElementById("pot").innerText="Pot: "+potAmount;},1300);
+}
+
+// Roll
+document.getElementById("rollBtn").onclick=()=>{
+  if(chips<bet){alert("Not enough chips");return;}
+  chips-=bet; playerChips[0]=chips;
+  saveChips();
+  document.getElementById("userChips").textContent=chips;
+  document.getElementById("seatChips-0").textContent=chips;
+
+  redWinner=Math.floor(Math.random()*NUM_PLAYERS);
+  whiteWinner=Math.floor(Math.random()*NUM_PLAYERS);
+
+  animateBall("red",redWinner,()=>{
+    document.getElementById("seat-"+redWinner).classList.add("win");
+    log("Red stopped at P"+(redWinner+1));
+    animateBall("white",whiteWinner,()=>{
+      document.getElementById("seat-"+whiteWinner).classList.add("win");
+      log("White stopped at P"+(whiteWinner+1));
+      movePotToWinner(redWinner,whiteWinner);
+    });
+  });
+};
+
+// Animate balls
+function animateBall(color,targetIndex,cb){
+  const start=performance.now();const dur=3000;
+  const startAngle=Math.random()*Math.PI*2;
+  const targetAngle=(Math.PI*2/NUM_PLAYERS)*targetIndex-Math.PI/2;
+  function frame(t){
+    let prog=Math.min(1,(t-start)/dur);
+    let ease=1-Math.pow(1-prog,3);
+    const angle=startAngle+(targetAngle-startAngle)*ease+(Math.PI*6)*(1-ease);
+    const x=cx+Math.cos(angle)*radius,y=cy+Math.sin(angle)*radius;
+    const ctx=document.getElementById("arena").getContext("2d");
+    ctx.clearRect(0,0,600,600);ctx.beginPath();
+    ctx.fillStyle=color;ctx.arc(x,y,14,0,Math.PI*2);ctx.fill();
+    if(prog<1){requestAnimationFrame(frame);}else cb();
+  }
+  requestAnimationFrame(frame);
+}
+
+// Pot -> winner/return
+function movePotToWinner(redWinner, whiteWinner){
+  const pot=document.getElementById("pot").getBoundingClientRect();
+
+  // White return
+  const whiteSeat=document.getElementById("seat-"+whiteWinner).getBoundingClientRect();
+  let returnChip=document.createElement("div");
+  returnChip.className="chip "+(bet===100?"red":bet===500?"blue":"gold");
+  returnChip.innerHTML=bet;
+  returnChip.style.left=(pot.left+40)+"px";
+  returnChip.style.top=(pot.top+40)+"px";
+  document.body.appendChild(returnChip);
+
+  setTimeout(()=>{
+    returnChip.style.left=(whiteSeat.left+30)+"px";
+    returnChip.style.top=(whiteSeat.top+30)+"px";
+  },100);
+
+  setTimeout(()=>{
+    returnChip.remove();
+    let old=playerChips[whiteWinner];
+    let updated=old+bet;
+    playerChips[whiteWinner]=updated;
+    smoothUpdate("seatChips-"+whiteWinner, old, updated);
+    if(whiteWinner===0){smoothUpdate("userChips", chips, chips+bet);chips+=bet;playerChips[0]=chips;saveChips();}
+    log("White ball: Bet returned to "+(whiteWinner===0?username:"P"+(whiteWinner+1)));
+  },1200);
+
+  // Red payout
+  const redSeat=document.getElementById("seat-"+redWinner).getBoundingClientRect();
+  let payout=bet*5;
+  for(let i=0;i<5;i++){
+    let chip=document.createElement("div");
+    chip.className="chip "+(bet===100?"red":bet===500?"blue":"gold");
+    chip.innerHTML=bet;
+    chip.style.left=(pot.left+40)+"px";
+    chip.style.top=(pot.top+40)+"px";
+    document.body.appendChild(chip);
+
+    setTimeout(()=>{
+      chip.style.left=(redSeat.left+30+Math.random()*20)+"px";
+      chip.style.top=(redSeat.top+30+Math.random()*20)+"px";
+    },100+i*150);
+
+    setTimeout(()=>{
+      chip.remove();
+      if(i===4){
+        let old=playerChips[redWinner];
+        let updated=old+payout;
+        playerChips[redWinner]=updated;
+        smoothUpdate("seatChips-"+redWinner, old, updated);
+        if(redWinner===0){smoothUpdate("userChips", chips, chips+payout);chips+=payout;playerChips[0]=chips;saveChips();}
+        log("Winner: "+(redWinner===0?username:"P"+(redWinner+1))+" +"+payout+" chips");
+        document.getElementById("winSound").play();
+        document.getElementById("pot").innerText="Pot: 0";
+      }
+    },2000+i*200);
+  }
+}
+
+// Log
+function log(t){document.getElementById("log").innerHTML="<div>"+t+"</div>"+document.getElementById("log").innerHTML;}
+// Back
+document.getElementById("backBtn").onclick=()=>{document.getElementById("gameTable").classList.add("hidden");document.getElementById("controls").classList.add("hidden");document.getElementById("betSelection").classList.remove("hidden");};
+// Buy
+document.getElementById("buyBtn").onclick=()=>{let amt=parseInt(prompt("Enter chips:","100"))||0;if(amt<=0)return;chips+=amt;playerChips[0]=chips;saveChips();smoothUpdate("userChips", chips-amt, chips);smoothUpdate("seatChips-0", chips-amt, chips);};
+</script>
+</body>
+</html>
